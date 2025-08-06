@@ -7,7 +7,11 @@
 
         <variable
             name="item"
-            type="com.onair.hearit.domain.CategoryItem" />
+            type="com.onair.hearit.domain.model.Category" />
+
+        <variable
+            name="listener"
+            type="com.onair.hearit.presentation.search.CategoryClickListener" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -16,14 +20,16 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="8dp"
         android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_gray1_radius_8dp"
+        android:onClick="@{() -> listener.onCategoryClick(item.id, item.name)}"
         android:paddingVertical="24dp"
-        tools:background="@drawable/bg_purple3_radius_8dp">
+        app:backgroundColor="@{item.colorCode}">
 
         <TextView
             style="@style/pretendard_category"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@{item.category}"
+            android:text="@{item.name}"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"

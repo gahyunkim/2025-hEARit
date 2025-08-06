@@ -1,66 +1,71 @@
 package com.onair.hearit.presentation.detail
 
+import android.annotation.SuppressLint
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.View
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.net.toUri
+import androidx.concurrent.futures.await
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.databinding.DataBindingUtil
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackParameters
+import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.flexbox.FlexDirection
+import com.google.android.flexbox.FlexWrap
+import com.google.android.flexbox.FlexboxLayoutManager
+import com.google.android.flexbox.JustifyContent
 import com.onair.hearit.R
+import com.onair.hearit.analytics.AnalyticsParamKeys
+import com.onair.hearit.analytics.AnalyticsScreenInfo
 import com.onair.hearit.databinding.ActivityPlayerDetailBinding
-import com.onair.hearit.domain.ScriptLine
+import com.onair.hearit.di.AnalyticsProvider
+import com.onair.hearit.di.CrashlyticsProvider
+import com.onair.hearit.domain.model.Hearit
+import com.onair.hearit.presentation.detail.script.ScriptFragment
+import com.onair.hearit.service.PlaybackService
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 class PlayerDetailActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlayerDetailBinding
-    private lateinit var player: ExoPlayer
-    private lateinit var layoutManager: LinearLayoutManager
+    private val scriptAdapter by lazy { PlayerDetailScriptAdapter() }
+    private val keywordAdapter by lazy { PlayerDetailKeywordAdapter() }
 
-    // 스크립트 예시 (실제 데이터로 변경해야함)
-    private val scriptLines =
-        listOf(
-            ScriptLine(0, 1500, "I'm your pookie in the morning"),
-            ScriptLine(1500, 4000, "You're my pookie in the night"),
-            ScriptLine(4000, 6500, "너만 보면 Super crazy"),
-            ScriptLine(6500, 8000, "Oh my 아찔 gets the vibe"),
-            ScriptLine(8000, 11000, "Don't matter what I do"),
-            ScriptLine(11000, 13000, "하나 둘 셋 Gimme that cue"),
-            ScriptLine(13000, 14000, "Cuz I'm your pookie"),
-            ScriptLine(14000, 16000, "두근두근 Gets the sign"),
-            ScriptLine(16000, 18000, "That's right"),
-            ScriptLine(18000, 21000, "내 Fresh new 립스틱 Pick해, 오늘의 color"),
-            ScriptLine(21000, 25000, "Oh my, 새로 고침 거울 속 느낌 공기도 달라"),
-            ScriptLine(25000, 29000, "밉지 않지 All I gotta do is blow a kiss"),
-            ScriptLine(29000, 34000, "Even salt tastes sweet, 이건 Z to A, And never felt like this"),
-            ScriptLine(
-                34000,
-                38000,
-                "Cuz I get what I want, and I want what I get, like every time",
-            ),
-            ScriptLine(
-                38000,
-                42000,
-                "Cuz I glow when I roll out of bed, No regrets I'm living my life",
-            ),
-            ScriptLine(42000, 46000, "지루한 걱정 따윈 no more"),
-            ScriptLine(46000, 50000, "이제는 어쩜 love sick and we know it"),
-            ScriptLine(
-                50000,
-                54000,
-                "I'm your pookie in the morning, I'm your pookie in the night",
-            ),
-            ScriptLine(54000, 58000, "너만 보면 super crazy, 두근두근, gets the vibe"),
-        )
+    private var mediaController: MediaController? = null
 
-    private lateinit var playerDetailScriptAdapter: PlayerDetailScriptAdapter
+    private val previousScreen by lazy {
+        intent.getStringExtra(AnalyticsParamKeys.SOURCE) ?: UNKNOWN_SCREEN_ID
+    }
+
+    private val hearitId: Long by lazy {
+        intent.getLongExtra(HEARIT_ID, -1)
+    }
+
+    private val lastPosition: Long by lazy {
+        intent.getLongExtra(LAST_POSITION, 0)
+    }
+
+    private val viewModel: PlayerDetailViewModel by viewModels {
+        PlayerDetailViewModelFactory(hearitId, CrashlyticsProvider.get())
+    }
 
     private val handler = Handler(Looper.getMainLooper())
     private val updateInterval = 300L
@@ -70,67 +75,267 @@ class PlayerDetailActivity : AppCompatActivity() {
         (16 * scale + 0.5f).toInt()
     }
 
-    private val updateRunnable =
-        object : Runnable {
-            override fun run() {
-                val pos = player.currentPosition
-                val currentIndex =
-                    scriptLines.indexOfFirst { pos in it.startTimeMs until it.endTimeMs }
-
-                if (currentIndex != -1) {
-                    playerDetailScriptAdapter.highlightPosition(currentIndex)
-
-                    val centerOffset = binding.rvScript.height / 2 - itemHeightPx / 2
-
-                    binding.rvScript.post {
-                        layoutManager.scrollToPositionWithOffset(currentIndex, centerOffset)
-                    }
-                }
-                handler.postDelayed(this, updateInterval)
-            }
-        }
-
-    @OptIn(UnstableApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        binding = DataBindingUtil.setContentView(this, R.layout.activity_player_detail)
+        bindLayout()
+        setupBackPressHandler()
+        setupWindowInsets()
+        setupScriptRecyclerView()
+        setupKeywordRecyclerView()
+        observeViewModel()
+        setupMediaController()
+        setupBaseControllerBookmark()
 
+        val previousScreen = intent.getStringExtra(AnalyticsParamKeys.SOURCE) ?: "unknown"
+        AnalyticsProvider.get().logScreenView(
+            screenName = AnalyticsScreenInfo.Detail.NAME,
+            screenClass = AnalyticsScreenInfo.Detail.CLASS,
+            previousScreen = previousScreen,
+        )
+
+        supportFragmentManager.addOnBackStackChangedListener {
+            val fragment = supportFragmentManager.findFragmentById(R.id.fragment_container_view)
+            binding.fragmentContainerView.visibility =
+                if (fragment != null && fragment.isVisible) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun bindLayout() {
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_player_detail)
+        binding.lifecycleOwner = this
+        binding.viewModel = viewModel
+    }
+
+    private fun setupBackPressHandler() {
+        val backAction = {
+            if (previousScreen == EXPLORE_SCREEN_ID) {
+                viewModel.bookmarkId.value?.let { bookmarkId ->
+                    intent =
+                        Intent().apply {
+                            putExtra(HEARIT_ID, hearitId)
+                            putExtra(BOOKMARK_ID, bookmarkId)
+                        }
+                }
+            }
+            setResult(RESULT_OK, intent)
+            finish()
+        }
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() = backAction()
+            },
+        )
+
+        binding.ibPlayerDetailBack.setOnClickListener {
+            backAction()
+        }
+    }
+
+    private fun setupWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            v.setPadding(0, systemBars.top, 0, systemBars.bottom)
             insets
         }
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
+    }
 
-        player =
-            ExoPlayer.Builder(this).build().apply {
-                val uri = "android.resource://$packageName/${R.raw.test_audio}".toUri()
-                val mediaItem = MediaItem.fromUri(uri)
-                setMediaItem(mediaItem)
-                prepare()
-                playWhenReady = true
+    @OptIn(UnstableApi::class)
+    private fun setupMediaController() {
+        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+
+        lifecycleScope.launch {
+            val controller =
+                MediaController
+                    .Builder(this@PlayerDetailActivity, sessionToken)
+                    .buildAsync()
+                    .await()
+
+            mediaController = controller
+            binding.playerView.player = controller
+            binding.baseController.setPlayer(controller)
+
+            val playingId = controller.currentMediaItem?.mediaId?.toLongOrNull()
+            val isDifferentHearit = playingId != hearitId
+
+            if (isDifferentHearit) {
+                controller.addListener(
+                    object : Player.Listener {
+                        override fun onTimelineChanged(
+                            timeline: Timeline,
+                            reason: Int,
+                        ) {
+                            if (timeline.windowCount > 0) {
+                                controller.removeListener(this)
+                                controller.play()
+                            }
+                        }
+                    },
+                )
             }
 
-        binding.playerView.player = player
-        binding.baseController.setPlayer(player)
+            startScriptSync(controller)
+        }
+    }
 
-        // 속도 설정
-        player.playbackParameters = PlaybackParameters(1.0f)
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupGestureListener() {
+        val gestureDetector =
+            GestureDetector(
+                this,
+                object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onSingleTapUp(e: MotionEvent): Boolean {
+                        supportFragmentManager
+                            .beginTransaction()
+                            .setCustomAnimations(R.anim.slide_up, 0)
+                            .replace(
+                                R.id.fragment_container_view,
+                                ScriptFragment.newInstance(hearitId),
+                            ).addToBackStack(null)
+                            .commit()
+                        return true
+                    }
 
-        layoutManager = LinearLayoutManager(this)
-        playerDetailScriptAdapter = PlayerDetailScriptAdapter(scriptLines)
-        binding.rvScript.apply {
-            this.layoutManager = this@PlayerDetailActivity.layoutManager
-            adapter = playerDetailScriptAdapter
+                    override fun onScroll(
+                        e1: MotionEvent?,
+                        e2: MotionEvent,
+                        distanceX: Float,
+                        distanceY: Float,
+                    ): Boolean = false
+                },
+            )
+
+        binding.rvScript.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+        }
+    }
+
+    private fun setupScriptRecyclerView() {
+        binding.rvScript.adapter = scriptAdapter
+        setupGestureListener()
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun observeViewModel() {
+        viewModel.hearit.observe(this) { hearit ->
+            binding.hearit = hearit
+            scriptAdapter.submitList(hearit.script)
+            keywordAdapter.submitList(hearit.keywords)
+            handlePlayback(hearit)
         }
 
-        // 스크립트 하이라이트 업데이트 루프 시작
+        viewModel.bookmarkId.observe(this) { bookmarkId ->
+            binding.baseController.setBookmarkSelected(bookmarkId != null)
+        }
+
+        viewModel.toastMessage.observe(this) { msgResId ->
+            Toast.makeText(this, getString(msgResId), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startScriptSync(controller: Player) {
+        val updateRunnable =
+            object : Runnable {
+                override fun run() {
+                    val pos = controller.currentPosition
+
+                    val currentItem =
+                        scriptAdapter.currentList.firstOrNull { pos in it.start until it.end }
+
+                    if (currentItem != null) {
+                        scriptAdapter.highlightScriptLine(currentItem.id)
+
+                        val currentIndex = scriptAdapter.currentList.indexOf(currentItem)
+                        val centerOffset = binding.rvScript.height / 2 - itemHeightPx / 2
+
+                        (binding.rvScript.layoutManager as LinearLayoutManager)
+                            .scrollToPositionWithOffset(currentIndex, centerOffset)
+                    }
+
+                    handler.postDelayed(this, updateInterval)
+                }
+            }
+
         handler.post(updateRunnable)
+    }
+
+    private fun setupKeywordRecyclerView() {
+        val layoutManager =
+            FlexboxLayoutManager(this).apply {
+                flexDirection = FlexDirection.ROW
+                flexWrap = FlexWrap.WRAP
+                justifyContent = JustifyContent.FLEX_START
+            }
+
+        binding.layoutDetailSummaryKeywords.rvKeyword.layoutManager = layoutManager
+        binding.layoutDetailSummaryKeywords.rvKeyword.adapter = keywordAdapter
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun setupBaseControllerBookmark() {
+        binding.baseController.setOnBookmarkClickListener {
+            viewModel.toggleBookmark()
+        }
+    }
+
+    private fun handlePlayback(hearit: Hearit) {
+        val controller = mediaController ?: return
+        val currentlyPlayingId = controller.currentMediaItem?.mediaId?.toLongOrNull()
+        val isDifferentHearit = currentlyPlayingId != hearit.id
+        val shouldResume = intent.hasExtra(LAST_POSITION) && lastPosition > 0L
+        val startPosition = if (shouldResume) lastPosition else 0L
+
+        if (isDifferentHearit) {
+            startPlaybackService(hearit.audioUrl, hearit.title, startPosition)
+        } else {
+            if (!controller.isPlaying) controller.play()
+            if (shouldResume && abs(controller.currentPosition - startPosition) > 1000) {
+                controller.seekTo(startPosition)
+            }
+        }
+    }
+
+    private fun startPlaybackService(
+        audioUrl: String,
+        title: String,
+        startPosition: Long = 0L,
+    ) {
+        val serviceIntent =
+            PlaybackService.newIntent(
+                context = this,
+                audioUrl = audioUrl,
+                title = title,
+                hearitId = hearitId,
+                startPosition = startPosition,
+            )
+        startService(serviceIntent)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        player.release()
-        handler.removeCallbacks(updateRunnable)
+        handler.removeCallbacksAndMessages(null)
+        mediaController?.release()
+    }
+
+    companion object {
+        const val UNKNOWN_SCREEN_ID = "unknown"
+        const val EXPLORE_SCREEN_ID = "explore"
+        const val HEARIT_ID = "hearit_id"
+        const val BOOKMARK_ID = "bookmark_id"
+        const val LAST_POSITION = "last_position"
+
+        fun newIntent(
+            context: Context,
+            hearitId: Long,
+            lastPosition: Long? = null,
+        ): Intent =
+            Intent(context, PlayerDetailActivity::class.java).apply {
+                putExtra(HEARIT_ID, hearitId)
+                lastPosition?.let { putExtra(LAST_POSITION, it) }
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
     }
 }

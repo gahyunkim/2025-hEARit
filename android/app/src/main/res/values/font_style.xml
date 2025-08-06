@@ -8,10 +8,24 @@
         <item name="android:textColor">@color/hearit_gray4</item>
     </style>
 
+    <style name="prompt_splash_logo">
+        <item name="fontFamily">@font/promptextrabold</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textSize">60sp</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
     <style name="pretendard_drawer">
         <item name="fontFamily">@font/pretendardmedium</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/hearit_gray4</item>
+    </style>
+
+    <style name="pretendard_nickname">
+        <item name="fontFamily">@font/pretendardbold</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textSize">24sp</item>
         <item name="android:textColor">@color/hearit_gray4</item>
     </style>
 
@@ -33,6 +47,13 @@
         <item name="fontFamily">@font/pretendardsemibold</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:textSize">18sp</item>
+        <item name="android:textColor">@color/hearit_gray4</item>
+    </style>
+
+    <style name="pretendard_bottom_title">
+        <item name="fontFamily">@font/pretendardbold</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/hearit_gray4</item>
     </style>
 

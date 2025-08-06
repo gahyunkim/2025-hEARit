@@ -4,15 +4,16 @@ import android.view.ViewGroup
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
-import com.onair.hearit.domain.HearitShortsItem
+import com.onair.hearit.domain.model.ShortsHearit
 
 class ShortsAdapter(
     private val player: ExoPlayer,
-) : ListAdapter<HearitShortsItem, ShortsViewHolder>((ExploreShortsDiffUtil)) {
+    private val shortsClickListener: ShortsClickListener,
+) : ListAdapter<ShortsHearit, ShortsViewHolder>((DiffCallback)) {
     override fun onCreateViewHolder(
         parent: ViewGroup,
         viewType: Int,
-    ): ShortsViewHolder = ShortsViewHolder(parent, player)
+    ): ShortsViewHolder = ShortsViewHolder.create(parent, player, shortsClickListener)
 
     override fun onBindViewHolder(
         holder: ShortsViewHolder,
@@ -23,15 +24,18 @@ class ShortsAdapter(
 
     override fun getItemCount(): Int = currentList.size
 
-    object ExploreShortsDiffUtil : DiffUtil.ItemCallback<HearitShortsItem>() {
-        override fun areItemsTheSame(
-            oldItem: HearitShortsItem,
-            newItem: HearitShortsItem,
-        ): Boolean = oldItem.id == newItem.id
+    companion object {
+        private val DiffCallback =
+            object : DiffUtil.ItemCallback<ShortsHearit>() {
+                override fun areItemsTheSame(
+                    oldItem: ShortsHearit,
+                    newItem: ShortsHearit,
+                ): Boolean = oldItem.id == newItem.id
 
-        override fun areContentsTheSame(
-            oldItem: HearitShortsItem,
-            newItem: HearitShortsItem,
-        ): Boolean = oldItem == newItem
+                override fun areContentsTheSame(
+                    oldItem: ShortsHearit,
+                    newItem: ShortsHearit,
+                ): Boolean = oldItem == newItem
+            }
     }
 }
