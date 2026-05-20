@@ -2,28 +2,35 @@ package com.onair.hearit.data.repository
 
 import com.onair.hearit.data.datasource.remote.BookmarkRemoteDataSource
 import com.onair.hearit.data.mapper.toDomain
+import com.onair.hearit.data.toDomainResult
 import com.onair.hearit.domain.model.Bookmark
+import com.onair.hearit.domain.model.PageResult
 import com.onair.hearit.domain.repository.BookmarkRepository
+import javax.inject.Inject
 
-class BookmarkRepositoryImpl(
-    private val bookmarkDataSource: BookmarkRemoteDataSource,
+class BookmarkRepositoryImpl @Inject constructor(
+    private val bookmarkRemoteDataSource: BookmarkRemoteDataSource,
 ) : BookmarkRepository {
     override suspend fun getBookmarks(
-        token: String?,
         page: Int?,
         size: Int?,
-    ): Result<List<Bookmark>> =
-        bookmarkDataSource.getBookmarks(token, page, size).mapOrThrowDomain { bookmarkResponse ->
-            bookmarkResponse.content.map { it.toDomain() }
+        filter: String,
+    ): Result<PageResult<Bookmark>> = bookmarkRemoteDataSource.getBookmarks(page, size, filter).toDomainResult { it.toDomain() }
+
+    override suspend fun addBookmark(hearitId: Long): Result<Long> = bookmarkRemoteDataSource.addBookmark(hearitId).toDomainResult { it.id }
+
+    override suspend fun deleteBookmark(bookmarkId: Long): Result<Unit> =
+        bookmarkRemoteDataSource.deleteBookmark(bookmarkId).toDomainResult()
+
+    override suspend fun getNextBookmark(currentId: Long): Result<Bookmark?> =
+        getBookmarks(page = null, size = null, filter = "all").map { pageResult ->
+            val sortedBookmarks = pageResult.items.sortedBy { it.bookmarkId }
+
+            val currentIndex = sortedBookmarks.indexOfFirst { it.bookmarkId == currentId }
+            if (currentIndex > 0) {
+                sortedBookmarks[currentIndex - 1]
+            } else {
+                null
+            }
         }
-
-    override suspend fun addBookmark(
-        token: String?,
-        hearitId: Long,
-    ): Result<Long> = bookmarkDataSource.addBookmark(token, hearitId).mapOrThrowDomain { it.id }
-
-    override suspend fun deleteBookmark(
-        token: String?,
-        bookmarkId: Long,
-    ): Result<Unit> = runCatching { bookmarkDataSource.deleteBookmark(token, bookmarkId) }
 }

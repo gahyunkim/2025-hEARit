@@ -5,28 +5,26 @@ import com.onair.hearit.data.dto.BookmarkResponse
 import retrofit2.Response
 import retrofit2.http.DELETE
 import retrofit2.http.GET
-import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface BookmarkService {
-    @GET("bookmarks/hearits")
+    @GET("api/v1/bookmarks")
     suspend fun getBookmarks(
-        @Header("Authorization") token: String?,
-        @Query("page") page: Int?,
-        @Query("size") size: Int?,
+        @Query("page") page: Int? = 0,
+        @Query("size") size: Int? = 10,
+        @Query("filter") filter: String? = "all",
+        @Query("sort") sort: String? = "createdAt,desc",
     ): Response<BookmarkResponse>
 
-    @POST("bookmarks/hearits/{hearitId}")
+    @POST("api/v1/bookmarks/hearits/{hearitId}")
     suspend fun postBookmark(
-        @Header("Authorization") token: String?,
         @Path("hearitId") hearitId: Long,
     ): Response<BookmarkIdResponse>
 
-    @DELETE("bookmarks/{bookmarkId}")
+    @DELETE("api/v1/bookmarks/{bookmarkId}")
     suspend fun deleteBookmark(
-        @Header("Authorization") token: String?,
         @Path("bookmarkId") bookmarkId: Long,
     ): Response<Unit>
 }

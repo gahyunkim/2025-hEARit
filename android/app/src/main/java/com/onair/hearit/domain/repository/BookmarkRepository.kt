@@ -1,21 +1,18 @@
 package com.onair.hearit.domain.repository
 
 import com.onair.hearit.domain.model.Bookmark
+import com.onair.hearit.domain.model.PageResult
 
 interface BookmarkRepository {
     suspend fun getBookmarks(
-        token: String?,
         page: Int?,
         size: Int?,
-    ): Result<List<Bookmark>>
+        filter: String,
+    ): Result<PageResult<Bookmark>>
 
-    suspend fun addBookmark(
-        token: String?,
-        hearitId: Long,
-    ): Result<Long>
+    suspend fun addBookmark(hearitId: Long): Result<Long>
 
-    suspend fun deleteBookmark(
-        token: String?,
-        bookmarkId: Long,
-    ): Result<Unit>
+    suspend fun deleteBookmark(bookmarkId: Long): Result<Unit>
+
+    suspend fun getNextBookmark(currentId: Long): Result<Bookmark?>
 }

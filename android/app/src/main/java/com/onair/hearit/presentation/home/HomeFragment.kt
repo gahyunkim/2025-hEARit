@@ -4,59 +4,80 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.core.os.bundleOf
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.PagerSnapHelper
-import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.onair.hearit.R
-import com.onair.hearit.analytics.AnalyticsScreenInfo
+import com.onair.hearit.analytics.AnalyticsEventNames
+import com.onair.hearit.analytics.AnalyticsLogger
+import com.onair.hearit.analytics.AnalyticsParamKeys.CATEGORY_NAME
+import com.onair.hearit.analytics.AnalyticsParamKeys.ITEM_ID
+import com.onair.hearit.analytics.AnalyticsParamKeys.SCREEN_NAME_HOME
+import com.onair.hearit.analytics.HearitSource
 import com.onair.hearit.databinding.FragmentHomeBinding
-import com.onair.hearit.di.AnalyticsProvider
-import com.onair.hearit.di.CrashlyticsProvider
-import com.onair.hearit.domain.model.Direction
-import com.onair.hearit.domain.model.RecommendHearits
-import com.onair.hearit.domain.model.SearchInput.Companion.CATEGORY_ID_KEY
-import com.onair.hearit.domain.model.SearchInput.Companion.CATEGORY_KEY
-import com.onair.hearit.domain.model.SearchInput.Companion.CATEGORY_NAME_KEY
-import com.onair.hearit.presentation.DrawerClickListener
-import com.onair.hearit.presentation.MainActivity
+import com.onair.hearit.domain.model.Bookmark
+import com.onair.hearit.domain.model.PlayingHistoryHearit
+import com.onair.hearit.domain.model.RecentUploadHearit
+import com.onair.hearit.domain.model.RecommendationCategories
+import com.onair.hearit.domain.model.UserInfo
+import com.onair.hearit.presentation.HearitClickListener
 import com.onair.hearit.presentation.detail.PlayerDetailActivity
-import com.onair.hearit.presentation.explore.ExploreFragment
+import com.onair.hearit.presentation.dpToPx
+import com.onair.hearit.presentation.home.adapter.PlayingBookmarkHearitAdapter
+import com.onair.hearit.presentation.home.adapter.PlayingHistoryHearitAdapter
+import com.onair.hearit.presentation.home.adapter.RecentUploadHearitAdapter
+import com.onair.hearit.presentation.home.adapter.RecommendationCategoryAdapter
+import com.onair.hearit.presentation.home.component.CarouselSection
+import com.onair.hearit.presentation.main.MainActivity
+import com.onair.hearit.presentation.main.MainViewModel
 import com.onair.hearit.presentation.search.SearchFragment
-import kotlin.math.abs
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class HomeFragment :
     Fragment(),
     HearitClickListener {
     @Suppress("ktlint:standard:backing-property-naming")
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: HomeViewModel by viewModels {
-        HomeViewModelFactory(
-            requireContext(),
-            CrashlyticsProvider.get(),
-        )
+    private val viewModel: HomeViewModel by viewModels()
+    private val mainViewModel: MainViewModel by activityViewModels()
+
+    private val playingHistoryAdapter: PlayingHistoryHearitAdapter by lazy {
+        PlayingHistoryHearitAdapter(this)
     }
-    private val recommendAdapter: RecommendHearitAdapter by lazy {
-        RecommendHearitAdapter(
+
+    private val recentUploadAdapter: RecentUploadHearitAdapter by lazy {
+        RecentUploadHearitAdapter(this)
+    }
+
+    private val playingBookmarkAdapter: PlayingBookmarkHearitAdapter by lazy {
+        PlayingBookmarkHearitAdapter(this)
+    }
+
+    private val recommendationCategoryAdapter: RecommendationCategoryAdapter by lazy {
+        RecommendationCategoryAdapter(
             this,
-            navigateClickListener = { navigateToExplore() },
+            navigateClickListener = ::navigateToSearch,
         )
     }
-    private val groupedCategoryAdapter: GroupedCategoryAdapter by lazy {
-        GroupedCategoryAdapter(
-            this,
-            navigateClickListener = { id, name -> navigateToSearch(id, name) },
-        )
-    }
-    private val snapHelper = PagerSnapHelper()
-    private lateinit var indicatorContainer: LinearLayout
+
+    @Inject
+    lateinit var analyticsLogger: AnalyticsLogger
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -72,19 +93,23 @@ class HomeFragment :
         savedInstanceState: Bundle?,
     ) {
         super.onViewCreated(view, savedInstanceState)
-        binding.lifecycleOwner = this
+
         setupWindowInsets()
         setupListeners()
-        setupRecommendRecyclerView()
-        setupCategoryRecyclerView()
+        setupRecyclerView()
+        setupComposeCarousel()
+        setupSwipeRefresh()
         observeViewModel()
     }
 
     override fun onResume() {
         super.onResume()
-        AnalyticsProvider.get().logScreenView(
-            screenName = AnalyticsScreenInfo.Home.NAME,
-            screenClass = AnalyticsScreenInfo.Home.CLASS,
+        analyticsLogger.logEvent(
+            FirebaseAnalytics.Event.SCREEN_VIEW,
+            mapOf(
+                FirebaseAnalytics.Param.SCREEN_NAME to SCREEN_NAME_HOME,
+                FirebaseAnalytics.Param.SCREEN_CLASS to this::class.simpleName.orEmpty(),
+            ),
         )
     }
 
@@ -97,215 +122,225 @@ class HomeFragment :
     }
 
     private fun setupListeners() {
-        binding.ivProfile.setOnClickListener {
-            (activity as? DrawerClickListener)?.openDrawer()
+        binding.tvHomePlayingBookmarkTitle.setOnClickListener {
+            analyticsLogger.logEvent(AnalyticsEventNames.HOME_BOOKMARK_SELECTED)
+            (activity as MainActivity).selectTab(R.id.nav_library)
+        }
+
+        binding.tvHomeShortcast.setOnClickListener {
+            analyticsLogger.logEvent(AnalyticsEventNames.HOME_EXPLORE_SELECTED)
+            (activity as MainActivity).selectTab(R.id.nav_explore)
         }
     }
 
-    private fun setupRecommendRecyclerView() {
-        binding.rvHomeRecommend.apply {
-            adapter = recommendAdapter
-            snapHelper.attachToRecyclerView(this)
+    private fun setupRecyclerView() {
+        binding.rvHomePlayingHistoryHearit.apply {
+            adapter = playingHistoryAdapter
+            addItemDecoration(HorizontalMarginItemDecoration(SIDE_MARGIN.dpToPx(requireContext())))
+        }
 
-            addOnScrollListener(
-                object : RecyclerView.OnScrollListener() {
-                    override fun onScrolled(
-                        recyclerView: RecyclerView,
-                        dx: Int,
-                        dy: Int,
-                    ) {
-                        updateCenterEffect(recyclerView)
-                    }
+        binding.rvHomeRecentUpload.apply {
+            adapter = recentUploadAdapter
+            addItemDecoration(HorizontalMarginItemDecoration(SIDE_MARGIN.dpToPx(requireContext())))
+        }
 
-                    override fun onScrollStateChanged(
-                        recyclerView: RecyclerView,
-                        newState: Int,
-                    ) {
-                        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                            val layoutManager =
-                                recyclerView.layoutManager as? LinearLayoutManager ?: return
-                            val snapView = snapHelper.findSnapView(layoutManager) ?: return
-                            val position = layoutManager.getPosition(snapView)
-                            updateIndicator(position)
-                        }
-                    }
-                },
+        binding.rvHomePlayingBookmark.apply {
+            adapter = playingBookmarkAdapter
+            addItemDecoration(HorizontalMarginItemDecoration(SIDE_MARGIN.dpToPx(requireContext())))
+        }
+
+        binding.rvHomeRecommendationCategories.adapter = recommendationCategoryAdapter
+    }
+
+    private fun setupComposeCarousel() {
+        binding.recommendCarousel.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed,
+        )
+        binding.recommendCarousel.setContent {
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+            if (uiState.showRecommendHearits) {
+                MaterialTheme {
+                    CarouselSection(
+                        items = uiState.recommendHearits,
+                        onItemClick = { item ->
+                            logHomeHearitClick(HearitSource.RECOMMEND, item.id)
+                            navigateToPlayerDetail(item.id)
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    private fun setupSwipeRefresh() {
+        binding.swipeRefreshLayout.apply {
+            setColorSchemeResources(
+                R.color.hearit_purple1,
+                R.color.hearit_purple2,
+                R.color.hearit_purple3,
             )
-        }
-    }
 
-    private fun setupCategoryRecyclerView() {
-        binding.rvHomeGroupedCategory.adapter = groupedCategoryAdapter
+            setOnRefreshListener {
+                viewModel.refreshData()
+            }
+        }
     }
 
     private fun observeViewModel() {
-        viewModel.userInfo.observe(viewLifecycleOwner) { userInfo ->
-            binding.userInfo = userInfo
-        }
-
-        viewModel.recommendHearits.observe(viewLifecycleOwner) { recommendItems ->
-            val contentItems = recommendItems.map { RecommendHearits.Content(it) }
-            val items =
-                buildList {
-                    add(RecommendHearits.NavigateItem(direction = Direction.LEFT))
-                    addAll(contentItems)
-                    add(RecommendHearits.NavigateItem(direction = Direction.RIGHT))
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.isRefreshing.collect { refreshing ->
+                        binding.swipeRefreshLayout.isRefreshing = refreshing
+                    }
                 }
-            recommendAdapter.submitList(items) {
-                scrollToMiddlePosition()
-                setupIndicator(contentItems.size)
+
+                launch {
+                    viewModel.uiState.collect { state ->
+                        updateUI(state)
+                    }
+                }
             }
         }
 
-        viewModel.groupedCategory.observe(viewLifecycleOwner) { groupedCategory ->
-            groupedCategoryAdapter.submitList(groupedCategory)
-        }
+        viewModel.toastMessage.observe(viewLifecycleOwner, ::showToast)
+    }
 
-        viewModel.toastMessage.observe(viewLifecycleOwner) { resId ->
-            showToast(getString(resId))
+    private fun updateUI(state: HomeUiState) {
+        updateLoadingState(state.isLoading)
+        updateAdSections(state.isLoading)
+        updateUserInfo(state.userInfo, state.isLoggedIn)
+
+        binding.recommendCarousel.isVisible = state.showRecommendHearits
+        updatePlayingHistorySection(state.playingHistoryHearits, state.showPlayingHistory)
+        updateRecentUploadSection(state.recentUploadHearits, state.showRecentUpload)
+        updateBookmarkSection(state.playingBookmarkHearits, state.showBookmark)
+        updateCategoriesSection(state.recommendationCategories, state.showCategories)
+        binding.ad = state.advertisement
+    }
+
+    private fun updateLoadingState(isLoading: Boolean) {
+        binding.frHomeSkeleton.apply {
+            isVisible = isLoading
+            if (isLoading) startShimmer() else stopShimmer()
         }
     }
 
-    private fun setupIndicator(size: Int) {
-        indicatorContainer = binding.indicatorContainer
-        indicatorContainer.removeAllViews()
-
-        repeat(size) {
-            val dot =
-                View(requireContext()).apply {
-                    val sizeInPx = (INDICATOR_SIZE_DP * resources.displayMetrics.density).toInt()
-                    val marginPx = (INDICATOR_MARGIN_DP * resources.displayMetrics.density).toInt()
-                    layoutParams =
-                        LinearLayout.LayoutParams(sizeInPx, sizeInPx).apply {
-                            marginStart = marginPx
-                            marginEnd = marginPx
-                        }
-                }
-            indicatorContainer.addView(dot)
-        }
-        setCurrentIndicator(2)
-    }
-
-    private fun updateCenterEffect(recyclerView: RecyclerView) {
-        val centerX = recyclerView.width / 2
-        for (i in 0 until recyclerView.childCount) {
-            val child = recyclerView.getChildAt(i) ?: continue
-            applyCenterScalingEffect(child, centerX, recyclerView)
-        }
-    }
-
-    private fun updateIndicator(position: Int) {
-        val count = indicatorContainer.childCount
-        if (count == 0) return
-
-        val indicatorIndex = position - 1
-        if (indicatorIndex in 0 until count) {
-            setCurrentIndicator(indicatorIndex)
-        }
-    }
-
-    private fun setCurrentIndicator(index: Int) {
-        for (i in 0 until indicatorContainer.childCount) {
-            val dot = indicatorContainer.getChildAt(i)
-            val drawableRes =
-                if (i == index) R.drawable.indicator_selected else R.drawable.indicator_unselected
-            dot.setBackgroundResource(drawableRes)
-        }
-    }
-
-    private fun applyCenterScalingEffect(
-        child: View,
-        centerX: Int,
-        recyclerView: RecyclerView,
+    private fun updateUserInfo(
+        userInfo: UserInfo?,
+        isLoggedIn: Boolean,
     ) {
-        val childCenterX = (child.left + child.right) / 2
-        val distanceFromCenter = (centerX - childCenterX).toFloat()
-        val d = abs(distanceFromCenter) / recyclerView.width.coerceAtLeast(1)
-        val scale = MIN_SCALE + (1 - d).coerceIn(0f, 1f) * MAX_SCALE_DELTA
-        val translationX = distanceFromCenter * TRANSLATION_FACTOR
-
-        child.pivotY = child.height / 2f
-        child.translationY = 0f
-        child.scaleX = scale
-        child.scaleY = scale
-        child.translationX = translationX
-
-        // 중심에 가까울수록 불투명, 멀수록 더 투명
-        child.z = (1 - d) * MAX_ELEVATION
-        child.alpha = MIN_ALPHA + (1 - d) * MAX_ALPHA_DELTA
+        mainViewModel.updateLoginState(isLoggedIn)
+        binding.userInfo = userInfo
     }
 
-    // 리스트 중앙에 포지션 배치
-    private fun scrollToMiddlePosition() {
-        binding.rvHomeRecommend.post {
-            val middlePosition = recommendAdapter.currentList.size / 2
-            val layoutManager = binding.rvHomeRecommend.layoutManager as LinearLayoutManager
-            val recyclerViewCenter = binding.rvHomeRecommend.width / 2
-            val itemWidth = (ITEM_WIDTH_DP * resources.displayMetrics.density).toInt()
-            val offset = recyclerViewCenter - (itemWidth / 2)
-            layoutManager.scrollToPositionWithOffset(middlePosition, offset)
-        }
+    private fun updatePlayingHistorySection(
+        playingHistoryHearits: List<PlayingHistoryHearit>,
+        shouldShow: Boolean,
+    ) {
+        binding.tvHomePlayingHistoryHearitTitle.isVisible = shouldShow
+        binding.rvHomePlayingHistoryHearit.isVisible = shouldShow
+        playingHistoryAdapter.submitList(playingHistoryHearits)
     }
 
-    private fun showToast(message: String?) {
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    private fun updateRecentUploadSection(
+        recentUploadHearits: List<RecentUploadHearit>,
+        shouldShow: Boolean,
+    ) {
+        binding.tvHomeRecentUploadTitle.isVisible = shouldShow
+        binding.rvHomeRecentUpload.isVisible = shouldShow
+        recentUploadAdapter.submitList(recentUploadHearits)
     }
 
-    private fun navigateToExplore() {
-        parentFragmentManager
-            .beginTransaction()
-            .replace(R.id.fragment_container_view, ExploreFragment())
-            .addToBackStack(null)
-            .commit()
+    private fun updateBookmarkSection(
+        playingBookmarkHearits: List<Bookmark>,
+        shouldShow: Boolean,
+    ) {
+        binding.tvHomePlayingBookmarkTitle.isVisible = shouldShow
+        binding.rvHomePlayingBookmark.isVisible = shouldShow
+        playingBookmarkAdapter.submitList(playingBookmarkHearits)
+    }
 
-        (requireActivity() as MainActivity).selectTab(R.id.nav_explore)
+    private fun updateCategoriesSection(
+        recommendationCategories: List<RecommendationCategories>,
+        shouldShow: Boolean,
+    ) {
+        binding.rvHomeRecommendationCategories.isVisible = shouldShow
+        recommendationCategoryAdapter.submitList(recommendationCategories)
+    }
+
+    private fun updateAdSections(isLoading: Boolean) {
+        binding.tvHomeShortcast.isVisible = !isLoading
+    }
+
+    private fun showToast(messageResId: Int) {
+        Toast.makeText(requireContext(), getString(messageResId), Toast.LENGTH_SHORT).show()
     }
 
     private fun navigateToSearch(
         id: Long,
         name: String,
+        colorCode: String,
     ) {
+        analyticsLogger.logEvent(
+            AnalyticsEventNames.HOME_RECOMMENDATION_CATEGORY_SELECTED,
+            mapOf(ITEM_ID to id.toString(), CATEGORY_NAME to name),
+        )
+
+        val fragment =
+            SearchFragment.newInstanceWithCategory(
+                categoryId = id,
+                categoryName = name,
+                categoryColor = colorCode,
+            )
+
         parentFragmentManager
             .beginTransaction()
-            .replace(R.id.fragment_container_view, SearchFragment())
+            .replace(R.id.fragment_container_view, fragment)
             .addToBackStack(null)
             .commit()
-
-        (requireActivity() as MainActivity).selectTab(R.id.nav_search)
-        parentFragmentManager.executePendingTransactions()
-
-        parentFragmentManager.setFragmentResult(
-            CATEGORY_KEY,
-            bundleOf(
-                CATEGORY_ID_KEY to id,
-                CATEGORY_NAME_KEY to name,
-            ),
-        )
     }
 
     private fun navigateToPlayerDetail(hearitId: Long) {
         val intent = PlayerDetailActivity.newIntent(requireActivity(), hearitId)
-        startActivity(intent)
+        (activity as? MainActivity)?.launchDetailActivity(intent)
     }
 
-    override fun onClick(hearitId: Long) {
+    private fun logHomeHearitClick(
+        source: HearitSource,
+        hearitId: Long,
+    ) {
+        val event =
+            when (source) {
+                HearitSource.PLAYING_HISTORY -> AnalyticsEventNames.HOME_PLAYING_HISTORY_SELECTED
+                HearitSource.RECOMMEND -> AnalyticsEventNames.HOME_RECOMMEND_SELECTED
+                HearitSource.RECENT_UPLOAD -> AnalyticsEventNames.HOME_RECENT_UPLOAD_SELECTED
+                HearitSource.PLAYING_BOOKMARK -> AnalyticsEventNames.HOME_PLAYING_BOOKMARK_SELECTED
+                HearitSource.RECOMMENDATION_CATEGORY -> AnalyticsEventNames.HOME_RECOMMENDATION_CATEGORY_HEARIT_SELECTED
+                HearitSource.SEARCH_KEYWORD -> AnalyticsEventNames.SEARCH_KEYWORD_SELECTED
+            }
+        analyticsLogger.logEvent(event, mapOf(ITEM_ID to hearitId.toString()))
+    }
+
+    override fun onClick(
+        hearitId: Long,
+        source: HearitSource,
+    ) {
+        logHomeHearitClick(source, hearitId)
         navigateToPlayerDetail(hearitId)
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        binding.rvHomeRecommendationCategories.adapter = null
+        binding.rvHomePlayingHistoryHearit.adapter = null
+        binding.rvHomeRecentUpload.adapter = null
+        binding.rvHomePlayingBookmark.adapter = null
         _binding = null
+        super.onDestroyView()
     }
 
     private companion object {
-        private const val MIN_SCALE = 0.85f
-        private const val MAX_SCALE_DELTA = 0.15f
-        private const val TRANSLATION_FACTOR = 0.2f
-        private const val MAX_ELEVATION = 20f
-        private const val MIN_ALPHA = 0.3f
-        private const val MAX_ALPHA_DELTA = 0.8f
-        private const val ITEM_WIDTH_DP = 260
-        private const val INDICATOR_SIZE_DP = 8
-        private const val INDICATOR_MARGIN_DP = 4
+        private const val SIDE_MARGIN = 16
     }
 }

@@ -6,6 +6,7 @@
     <color name="hearit_purple1">#B677F3</color>
     <color name="hearit_purple2">#AC5FF7</color>
     <color name="hearit_purple3">#9533F5</color>
+    <color name="hearit_purple4">#795B9B</color>
     <color name="hearit_red1">#FF6464</color>
     <color name="hearit_black1">#272C32</color>
     <color name="hearit_dark_gray">#686F75</color>
@@ -13,4 +14,5 @@
     <color name="hearit_gray2">#B2B4B6</color>
     <color name="hearit_gray3">#D6DADB</color>
     <color name="hearit_gray4">#EFF1F2</color>
+    <color name="hearit_dark_black">#252525</color>
 </resources>

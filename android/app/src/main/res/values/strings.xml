@@ -2,37 +2,47 @@
     <string name="app_name">hEARit</string>
     <string name="all_logo">hEARit</string>
     <string name="all_hearit_email">hearit2025@gmail.com</string>
-    <string name="all_withdrawal">회원탈퇴</string>
-    <string name="all_logout">로그아웃</string>
-    <string name="all_setting">설정</string>
+    <string name="all_app_version">앱 버전 %s</string>
     <string name="all_cancel">취소</string>
-    <string name="all_privacy_policy">개인정보처리방침</string>
-    <string name="all_terms_of_use">이용 약관</string>
-    <string name="all_account_info">설정 및 계정 정보</string>
-    <string name="all_toast_categories_load_fail">카테고리 조회에 실패했습니다.</string>
-    <string name="all_toast_user_info_load_fail">유저 정보 조회에 실패했습니다.</string>
-    <string name="all_toast_save_user_info_fail">유저 정보 저장에 실패했습니다.</string>
-    <string name="all_toast_add_bookmark_fail">북마크 저장에 실패했습니다.</string>
-    <string name="all_toast_delete_bookmark_fail">북마크 삭제에 실패했습니다.</string>
+    <string name="all_setting">설정</string>
+    <string name="all_login">로그인 하러가기</string>
+    <string name="all_toast_categories_load_fail">카테고리 조회에 실패했습니다</string>
+    <string name="all_toast_user_info_load_fail">유저 정보 조회에 실패했습니다</string>
+    <string name="all_toast_save_user_info_fail">유저 정보 저장에 실패했습니다</string>
+    <string name="all_toast_add_bookmark_fail">북마크 저장에 실패했습니다</string>
+    <string name="all_toast_delete_bookmark_fail">북마크 삭제에 실패했습니다</string>
+    <string name="all_toast_notification_permission_denied">푸시 알림을 허용하지 않습니다.</string>
     <string name="all_keyword_name"># %s</string>
+    <string name="all_login_required_bookmark"><font color="#B677F3">북마크 기능</font>은\n <font color="#B677F3">로그인</font>을 하셔야 이용할 수 있어요!</string>
+    <string name="all_login_required_like"><font color="#B677F3">좋아요 기능</font>은\n <font color="#B677F3">로그인</font>을 하셔야 이용할 수 있어요!</string>
+    <string name="all_dialog_login_positive">로그인</string>
+    <string name="all_view_count">조회수 %d</string>
 
     <!-- HomeFragment-->
     <string name="home_logo_description">IT를 쉽게 들을 수 있는 팟캐스트, 히어릿</string>
-    <string name="home_recent_hearit_text">최근에 들은 히어릿</string>
-    <string name="home_navigate_to_explore_text">더 많은 히어릿을\n듣고 싶다면?</string>
     <string name="home_recommend_hearit_text">오늘 추천하는 팟캐스트</string>
-    <string name="home_grouped_category_text">%s 카테고리의 팟캐스트</string>
-    <string name="home_toast_recommend_load_fail">추천 히어릿 목록 조회에 실패했습니다.</string>
-    <string name="home_toast_recent_load_fail">최근 들은 히어릿 조회에 실패했습니다.</string>
-    <string name="home_toast_grouped_category_load_fail">카테고리별 히어릿 조회에 실패했습니다.</string>
+    <string name="home_recommendation_category_text">%s 카테고리</string>
+    <string name="home_playing_history_hearit_title">%s님이 듣고 있는 팟캐스트</string>
+    <string name="home_recent_upload_hearit_title">최근 추가된 팟캐스트</string>
+    <string name="home_playing_bookmark_hearit_title">북마크한 팟캐스트를 들어보세요</string>
+    <string name="home_navigate_explore_text">숏캐스트를 구경하고\n더 많은 팟캐스트를 북마크해보세요!</string>
+    <string name="home_navigate_wootaeco_text">우테코 합격비법이 궁금하다면?\n선배님들의 후기를 들어보세요!</string>
+    <string name="home_toast_recommend_load_fail">추천 히어릿 목록 조회에 실패했습니다</string>
+    <string name="home_toast_playing_history_load_fail">최근 들은 히어릿 조회에 실패했습니다</string>
+    <string name="home_toast_recent_upload_load_fail">최근 업로드된 히어릿 조회에 실패했습니다</string>
+    <string name="home_toast_playing_bookmark_load_fail">듣고 있는 북마크 조회에 실패했습니다</string>
+    <string name="home_toast_advertisement_load_fail">광고 조회에 실패했습니다</string>
+    <string name="home_toast_recommendation_category_load_fail">카테고리별 히어릿 조회에 실패했습니다</string>
+    <string name="home_toast_refresh_fail">새로고침 중 오류가 발생했습니다</string>
 
-    <!--CategoryFragment-->
-    <string name="category_text">전체 카테고리 목록</string>
+    <!--CategoryScreen-->
+    <string name="category_back_content_description">뒤로가기</string>
+    <string name="category_toast_searched_hearits_load_fail">카테고리 히어릿 목록 조회에 실패했습니다</string>
 
     <!-- CreateHearitActivity-->
-    <string name="create_hearit_main_title"><font color="#B677F3">생성하고자 하는 텍스트</font><font color="#EFF1F2">를 입력해주세요.</font></string>
-    <string name="create_hearit_sub_title">AI가 자동으로 텍스트를 요약해서 히어릿을 생성해 드립니다.</string>
-    <string name="create_hearit_hearit_source">HTTP와 HTTPS는 보안에서 차이가 있습니다.</string>
+    <string name="create_hearit_main_title"><font color="#B677F3">생성하고자 하는 텍스트</font><font color="#EFF1F2">를 입력해주세요</font></string>
+    <string name="create_hearit_sub_title">AI가 자동으로 텍스트를 요약해서 히어릿을 생성해 드립니다</string>
+    <string name="create_hearit_hearit_source">HTTP와 HTTPS는 보안에서 차이가 있습니다</string>
     <string name="create_hearit_source_count">0 자</string>
     <string name="create_hearit_button">hEARit 생성하기</string>
 
@@ -49,24 +59,56 @@
 
     <!-- PlayerDetailActivity-->
     <string name="player_detail_read_more_title">더보기</string>
-    <string name="player_detail_source_title">출처</string>
+    <string name="player_detail_source_title">참고 자료</string>
     <string name="player_detail_summary_title">요약</string>
     <string name="player_detail_keyword_title">키워드</string>
-    <string name="player_detail_toast_single_hearit_load_fail">단일 히어릿 조회에 실패했습니다.</string>
-    <string name="player_detail_toast_hearit_load_fail">히어릿 조회에 실패했습니다.</string>
-    <string name="player_detail_toast_recent_save_fail">최근 들은 히어릿 저장에 실패했습니다.</string>
+    <string name="player_detail_source_text"><u>%s</u></string>
+    <string name="player_detail_player_duration_remaining">-%1$s</string>
+    <string name="player_detail_player_speed_label">%1$sx</string>
+    <string name="player_detail_toast_single_hearit_load_fail">단일 히어릿 조회에 실패했습니다</string>
+    <string name="player_detail_toast_hearit_load_fail">히어릿 조회에 실패했습니다</string>
+    <string name="player_detail_toast_recent_save_fail">최근 들은 히어릿 저장에 실패했습니다</string>
+    <string name="player_detail_invite_error_kakao">카카오톡으로 공유하는 중 오류가 발생했습니다</string>
+    <string name="player_detail_invite_error_browser">웹 브라우저를 찾을 수 없어 공유할 수 없습니다</string>
+    <string name="player_detail_toast_add_like_fail">좋아요에 실패했어요. 잠시 후 다시 시도해 주세요</string>
+    <string name="player_detail_toast_delete_like_fail">좋아요 해제에 실패했어요. 잠시 후 다시 시도해 주세요</string>
+    <string name="player_detail_toast_like_login_required">좋아요는 로그인 후 이용할 수 있어요</string>
 
     <!-- ExploreFragment-->
     <string name="explore_hearit_guide"><font color="#B677F3">1분 미리듣기</font> 로 원하는 히어릿을 찾아보세요!</string>
-    <string name="explore_toast_random_hearits_load_fail">랜덤 히어릿 목록 조회에 실패했습니다.</string>
-    <string name="explore_toast_shorts_hearits_load_fail">탐색 쇼츠 목록 조회에 실패했습니다.</string>
+    <string name="explore_toast_random_hearits_load_fail">랜덤 히어릿 목록 조회에 실패했습니다</string>
+    <string name="explore_toast_shorts_hearits_load_fail">탐색 쇼츠 목록 조회에 실패했습니다</string>
     <string name="explore_navigate_to_detail_hearit">팟캐스트 이어 듣기</string>
 
     <!-- SettingFragment-->
-    <string name="setting_notification">알림</string>
     <string name="setting_recommend_notification">히어릿 추천 알림</string>
     <string name="setting_app_version">앱 버전 v%s</string>
-    <string name="setting_toast_user_info_load_fail">유저 정보 조회에 실패했습니다.</string>
+    <string name="setting_toast_user_info_load_fail">유저 정보 조회에 실패했습니다</string>
+    <string name="logout_success">로그아웃 되었습니다</string>
+    <string name="logout_fail">로그아웃에 실패했습니다</string>
+    <string name="withdraw_success">회원탈퇴에 성공했습니다</string>
+    <string name="withdraw_fail">회원탈퇴에 실패했습니다</string>
+    <string name="setting_withdrawal">회원탈퇴</string>
+    <string name="setting_logout">로그아웃</string>
+    <string name="setting_profile">내 정보</string>
+    <string name="setting_notification">푸시 알림</string>
+    <string name="setting_notification_system_dialog_title">알림이 꺼져 있어요</string>
+    <string name="setting_notification_system_dialog_description">휴대폰 설정에서 hEARit 알림을 켜야 푸시를 받을 수 있어요.</string>
+    <string name="setting_notification_system_dialog_confirm">설정으로 이동</string>
+    <string name="setting_notification_system_dialog_dismiss">취소</string>
+    <string name="setting_notification_push_enabled">푸시 알림을 켰어요</string>
+    <string name="setting_notification_push_disabled">푸시 알림을 껐어요</string>
+    <string name="setting_notification_push_blocked_by_system">휴대폰 설정에서 알림이 꺼져 있어요</string>
+    <string name="setting_notification_push_save_failed">설정 저장에 실패했어요. 잠시 후 다시 시도해 주세요.</string>
+    <string name="privacy_policy">개인정보처리방침</string>
+    <string name="terms_of_use">이용 약관</string>
+    <string name="open_license">오픈 라이선스</string>
+    <string name="account_info">설정 및 계정 정보</string>
+    <string name="setting_feedback">피드백 및 문의하기</string>
+    <string name="oss_license_title">hEARit Open Source Licenses</string>
+    <string name="privacy_policy_url">https://glistening-eclipse-58b.notion.site/231d39b9c3c3809b9f92ec3e812ea24b?source=copy_link</string>
+    <string name="terms_of_use_url">https://glistening-eclipse-58b.notion.site/231d39b9c3c3800eb03cc7e1fc00f6f1?source=copy_link</string>
+    <string name="feedback_url">https://docs.google.com/forms/d/e/1FAIpQLSfHy20uq3LGUmxngS38QmDjGbJLHPXSlgUcp_yYfsQygXzC_Q/viewform</string>
 
     <!-- LibraryFragment-->
     <string name="library_guide">오늘은 어떤 <font color="#B677F3">히어릿</font>을 들어볼까요?</string>
@@ -74,41 +116,47 @@
     <string name="library_guide_when_no_bookmark">북마크한 <font color="#B677F3">히어릿</font>이 없어요!\n히어릿과 함께 IT 트렌드를 모아볼까요?</string>
     <string name="library_guide_when_no_login"><font color="#B677F3">히어릿</font>을 모아서 듣고 싶다면,\n로그인을 해주세요!</string>
     <string name="library_login_button_text">로그인 하러가기</string>
-    <string name="library_toast_bookmark_load_fail">북마크 조회에 실패했습니다.</string>
+    <string name="library_toast_bookmark_load_fail">북마크 조회에 실패했습니다</string>
+    <string name="library_bottom_sheet_bookmark_delete">북마크에서 삭제하기</string>
+    <string name="library_bookmarked_hearit_total_count">히어릿 %d개</string>
 
     <!-- SearchFragment-->
     <string name="search_category_text">카테고리</string>
     <string name="search_recent_text">최근 검색어</string>
     <string name="search_recent_delete"><u>전체삭제</u></string>
-    <string name="search_keyword">검색어를 입력해주세요</string>
+    <string name="search_topbar_hint">검색어를 입력해주세요</string>
     <string name="search_toast_keywords_load_fail">오늘의 키워드 조회에 실패했습니다</string>
     <string name="search_toast_recent_keyword_load_fail">최근 검색어 조회에 실패했습니다</string>
     <string name="search_toast_recent_keyword_delete_success">최근 검색어를 삭제했습니다</string>
     <string name="search_toast_recent_keyword_delete_fail">최근 검색어 삭제에 실패했습니다</string>
     <string name="search_guide_when_no_hearits">검색된 <font color="#B677F3">히어릿</font>이 없어요!</string>
+    <string name="search_no_recent">최근 검색 내역이 없습니다</string>
+
+    <!-- SearchRecentFragment -->
+    <string name="search_toast_min_length">검색어는 2글자 이상 입력해주세요</string>
 
     <!-- SearchResultFragment-->
     <string name="search_result_searched_hearit">검색된 히어릿 목록</string>
-    <string name="search_toast_searched_hearits_load_fail">검색 히어릿 목록 조회에 실패했습니다.</string>
-    <string name="search_toast_recent_hearit_save_fail">최근 검색어 저장에 실패했습니다.</string>
+    <string name="search_toast_searched_hearits_load_fail">검색 히어릿 목록 조회에 실패했습니다</string>
+    <string name="search_toast_recent_hearit_save_fail">최근 검색어 저장에 실패했습니다</string>
 
     <!-- SplashActivity-->
     <string name="splash_toast_access_token_load_fail">저장된 토큰 조회에 실패했습니다</string>
     <string name="splash_toast_token_check_fail">토큰 유효성 검사에 실패했습니다</string>
+    <string name="splash_toast_network_check_fail">네트워크 연결을 확인해주세요</string>
     <string name="splash_toast_refresh_token_fail">새로운 토큰 생성에 실패했습니다</string>
 
     <!-- LoginActivity-->
     <string name="login_with_hearit">회원가입 없이 <font color="#B677F3">히어릿</font>을 이용하고 싶어요</string>
-    <string name="login_toast_kakao_login_fail">카카오 로그인에 실패했습니다.</string>
-    <string name="login_toast_save_token_fail">토큰 저장에 실패했습니다.</string>
+    <string name="login_toast_kakao_login_fail">카카오 로그인에 실패했습니다</string>
+    <string name="login_toast_save_token_fail">토큰 저장에 실패했습니다</string>
 
     <!-- MainActivity-->
-    <string name="main_toast_recent_load_fail">최근 들은 히어릿 조회에 실패했습니다.</string>
-    <string name="main_toast_load_player_hearit_fail">플레이어 설정에 실패했습니다.</string>
+    <string name="main_toast_recent_load_fail">최근 들은 히어릿 조회에 실패했습니다</string>
+    <string name="main_toast_load_player_hearit_fail">플레이어 설정에 실패했습니다</string>
     <string name="main_bottom_player_default_title">제목 없음</string>
     <string name="main_toast_finish_back_pressed">뒤로가기 버튼을 한 번 더 누르면 종료됩니다.</string>
     <string name="main_toast_player_last_position_save_fail">마지막 포지션 저장에 실패했습니다.</string>
-    <string name="main_toast_clear_token_fail">액세스 토큰 삭제에 실패했습니다.</string>
 
     <!-- BottomPlayerView-->
     <string name="bottom_player_view_default_duration">--:--</string>
@@ -116,7 +164,18 @@
     <!-- PlaybackService-->
     <string name="notification_channel_name">Hearit 재생 알림</string>
     <string name="notification_title_preparing">히어릿 재생 준비 중</string>
-    <string name="notification_text_preparing">재생을 준비하고 있어요.</string>
+    <string name="notification_text_preparing">재생을 준비하고 있어요</string>
     <string name="notification_title_playing">히어릿 재생 중</string>
-    <string name="notification_text_playing">음악이 재생되고 있어요.</string>
+    <string name="notification_text_playing">음악이 재생되고 있어요</string>
+
+    <!-- Dialog-->
+    <string name="dialog_logout_loading_text">로그아웃 중입니다..</string>
+    <string name="dialog_withdraw">탈퇴</string>
+    <string name="dialog_withdraw_title">회원탈퇴</string>
+    <string name="dialog_withdraw_message">정말 탈퇴하시겠습니까?\n탈퇴 시 모든 데이터가 삭제됩니다</string>
+
+    <!-- PlaylistBottomSheet-->
+    <string name="playlist_bottom_sheet_playlist_title">재생목록</string>
+    <string name="playlist_bottom_sheet_playlist_body">내가 북마크한 히어릿</string>
+    <string name="title_activity_explore_screen">ExploreScreen</string>
 </resources>

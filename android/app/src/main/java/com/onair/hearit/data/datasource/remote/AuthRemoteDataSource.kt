@@ -7,9 +7,11 @@ import com.onair.hearit.data.dto.TokenReissueRequest
 import com.onair.hearit.data.dto.TokenReissueResponse
 
 interface AuthRemoteDataSource {
-    suspend fun kakaoLogin(kakaoLoginRequest: KakaoLoginRequest): Result<NetworkResult<KakaoLoginResponse>>
+    suspend fun checkAccessToken(accessToken: String): NetworkResult<Unit>
 
-    suspend fun refreshAccessToken(reissueRequest: TokenReissueRequest): Result<NetworkResult<TokenReissueResponse>>
+    suspend fun kakaoLogin(kakaoLoginRequest: KakaoLoginRequest): NetworkResult<KakaoLoginResponse>
 
-    suspend fun checkAccessToken(token: String): Result<NetworkResult<Unit>>
+    suspend fun refreshAccessToken(reissueRequest: TokenReissueRequest): NetworkResult<TokenReissueResponse>
+
+    suspend fun withdraw(): NetworkResult<Unit>
 }

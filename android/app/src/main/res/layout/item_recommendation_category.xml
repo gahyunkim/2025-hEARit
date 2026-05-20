@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+
+        <variable
+            name="recommendationCategory"
+            type="com.onair.hearit.domain.model.RecommendationCategories" />
+
+        <variable
+            name="navigateClickListener"
+            type="kotlin.jvm.functions.Function3&lt;Long, String, String, kotlin.Unit&gt;" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tv_category_title"
+            style="@style/pretendard_main_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical"
+            android:onClick="@{() -> navigateClickListener.invoke(recommendationCategory.categoryId, recommendationCategory.categoryName, recommendationCategory.colorCode)}"
+            android:text="@{@string/home_recommendation_category_text(recommendationCategory.categoryName)}"
+            app:drawableEndCompat="@drawable/ic_right"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Spring 카테고리" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_category_items"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:clipToPadding="false"
+            android:nestedScrollingEnabled="false"
+            android:orientation="horizontal"
+            android:paddingHorizontal="20dp"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            app:layout_constraintTop_toBottomOf="@id/tv_category_title"
+            tools:itemCount="3"
+            tools:listitem="@layout/item_category_hearit" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

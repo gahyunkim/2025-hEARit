@@ -1,165 +1,271 @@
 package com.onair.hearit.presentation.explore
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.onair.hearit.R
-import com.onair.hearit.analytics.CrashlyticsLogger
-import com.onair.hearit.di.RepositoryProvider.dataStoreRepository
-import com.onair.hearit.domain.model.PageResult
-import com.onair.hearit.domain.model.Paging
-import com.onair.hearit.domain.model.RandomHearit
-import com.onair.hearit.domain.model.ShortsHearit
-import com.onair.hearit.domain.repository.BookmarkRepository
+import com.onair.hearit.domain.model.CursorResult
+import com.onair.hearit.domain.model.ExploreHearit
+import com.onair.hearit.domain.repository.ExploreRepository
 import com.onair.hearit.domain.repository.HearitRepository
-import com.onair.hearit.domain.usecase.GetShortsHearitUseCase
-import com.onair.hearit.presentation.SingleLiveData
-import com.onair.hearit.presentation.toBearerToken
+import com.onair.hearit.domain.usecase.GetExploreHearitUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import javax.inject.Inject
 
-class ExploreViewModel(
+data class ExploreUiState(
+    val shortsHearits: List<ExploreHearit> = emptyList(),
+    val isLoading: Boolean = true,
+    val currentPageIndex: Int = 0,
+    val showGuideAnimation: Boolean = false,
+    val showLoginDialog: Boolean = false,
+)
+
+sealed interface ExploreSideEffect {
+    data class ShowToast(
+        val messageResId: Int,
+    ) : ExploreSideEffect
+
+    data object NavigateToBack : ExploreSideEffect
+
+    data class NavigateToDetail(
+        val hearitId: Long,
+        val lastPosition: Long,
+    ) : ExploreSideEffect
+}
+
+@HiltViewModel
+class ExploreViewModel @Inject constructor(
+    private val playerManager: ExplorePlayerManager,
+    private val exploreRepository: ExploreRepository,
+    private val getExploreHearit: GetExploreHearitUseCase,
     private val hearitRepository: HearitRepository,
-    private val bookmarkRepository: BookmarkRepository,
-    private val getShortsHearitUseCase: GetShortsHearitUseCase,
-    private val crashlyticsLogger: CrashlyticsLogger,
 ) : ViewModel() {
-    private val _shortsHearits = MutableLiveData<List<ShortsHearit>>()
-    val shortsHearits: LiveData<List<ShortsHearit>> = _shortsHearits
+    private val _uiState = MutableStateFlow(ExploreUiState())
+    val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
 
-    private val _bookmarkId = MutableLiveData<Map<Long, Long?>>()
-    val bookmarkId: LiveData<Map<Long, Long?>> = _bookmarkId
+    private val _sideEffect = MutableSharedFlow<ExploreSideEffect>()
+    val sideEffect = _sideEffect.asSharedFlow()
 
-    private val _toastMessage = SingleLiveData<Int>()
-    val toastMessage: LiveData<Int> = _toastMessage
+    val currentPosition = playerManager.currentPosition
+    val isPlaying = playerManager.isPlaying
+    val speed = playerManager.speed
+    val duration = playerManager.duration
+    val isPlaybackEnded = playerManager.isPlaybackEnded
 
-    private lateinit var paging: Paging
-    private var currentPage = 0
-    private var isLastPage = false
-    private var isLoading = false
+    private var isLoadingPage: Boolean = false
+    private var isEndOfFeed: Boolean = false
+    private var nextCursorId: Long? = -1L
+
+    private var lastPosition: Long = 0L
+
+    // 복귀(Resume) 관련 변수
+    private var resumeItem: ExploreHearit? = null
+    private var resumePositionMs: Long = 0L
+    private var resumeScheduled: Boolean = false
 
     init {
-        fetchData(page = 0, isInitial = true)
+        loadInitialState()
+        observePlaybackEnded()
     }
 
-    fun fetchNextPage() {
-        if (isLoading || isLastPage) return
-        fetchData(page = currentPage, isInitial = false)
-    }
-
-    fun toggleBookmark(hearitId: Long) {
-        val currentBookmarkIdMap = _bookmarkId.value.orEmpty().toMutableMap()
-
-        val bookmarkId = currentBookmarkIdMap[hearitId]
-
-        if (bookmarkId != null) {
-            deleteBookmark(hearitId, bookmarkId)
-        } else {
-            addBookmark(hearitId)
+    private fun observePlaybackEnded() {
+        viewModelScope.launch {
+            isPlaybackEnded.collect { isEnded ->
+                if (isEnded) {
+                    val currentIndex = _uiState.value.currentPageIndex
+                    if (currentIndex < _uiState.value.shortsHearits.size - 1) {
+                        onPageChanged(currentIndex + 1)
+                    }
+                }
+            }
         }
+    }
+
+    private fun loadInitialState() {
+        viewModelScope.launch {
+            fetchData(0L, isFirstFetch = true)
+        }
+    }
+
+    fun scheduleResume(resumeIndex: Int) {
+        _uiState.value.shortsHearits.getOrNull(resumeIndex)?.let { item ->
+            resumeItem = item
+        }
+        resumePositionMs = lastPosition
+
+        resumeScheduled = true
+        playerManager.pause()
+    }
+
+    // 다시 돌아왔을 때 호출
+    fun resumeIfScheduled() {
+        if (!resumeScheduled) return
+        resumeScheduled = false
+
+        _uiState.update { it.copy(shortsHearits = emptyList(), isLoading = true) }
+        isLoadingPage = false
+
+        val startCursor = resumeItem?.cursorId ?: 0L
+        fetchData(startCursor, isFirstFetch = true)
     }
 
     private fun fetchData(
-        page: Int,
-        isInitial: Boolean,
+        cursorId: Long,
+        isFirstFetch: Boolean = false,
     ) {
-        isLoading = true
+        if (isLoadingPage) return
+        isLoadingPage = true
+        _uiState.update { it.copy(isLoading = true) }
+
         viewModelScope.launch {
-            val token = dataStoreRepository.getAccessToken().getOrNull()
-
             try {
-                val result = hearitRepository.getRandomHearits(token?.toBearerToken(), 0)
-                result
-                    .onSuccess { randomItems ->
-                        paging = randomItems.paging
-                        val shortsList = buildShortsHearit(randomItems)
-                        updateShortsHearit(shortsList, isInitial)
+                hearitRepository
+                    .getExploreHearits(cursorId)
+                    .onSuccess { cursorResult ->
+                        if (cursorResult.items.isEmpty() && isFirstFetch && cursorId != 0L) {
+                            isLoadingPage = false
+                            fetchData(0L, isFirstFetch = true)
+                            return@launch
+                        }
 
-                        // currentPage++
-                        // isLastPage = paging.isLast
+                        val newItems = buildShortsItems(cursorResult)
+
+                        _uiState.update { state ->
+                            val updatedList =
+                                if (resumeItem != null) {
+                                    (listOf(resumeItem!!) + newItems.filter { it.id != resumeItem?.id })
+                                } else if (isFirstFetch) {
+                                    newItems
+                                } else {
+                                    (state.shortsHearits + newItems)
+                                }.distinctBy { it.id }
+
+                            state.copy(shortsHearits = updatedList)
+                        }
+
+                        isEndOfFeed = cursorResult.items.isEmpty()
+                        nextCursorId = cursorResult.items.lastOrNull()?.cursorId
+                        resumeItem = null // 처리 완료 후 초기화
+
+                        if (isFirstFetch && _uiState.value.shortsHearits.isNotEmpty()) {
+                            onPageChanged(0, isRestoring = true)
+                        }
                     }.onFailure {
-                        _toastMessage.value = R.string.explore_toast_random_hearits_load_fail
+                        _sideEffect.emit(ExploreSideEffect.ShowToast(R.string.explore_toast_random_hearits_load_fail))
                     }
-            } catch (_: Exception) {
-                _toastMessage.value = R.string.explore_toast_shorts_hearits_load_fail
+            } catch (e: Exception) {
+                Timber.e(e)
+                _sideEffect.emit(ExploreSideEffect.ShowToast(R.string.explore_toast_shorts_hearits_load_fail))
             } finally {
-                isLoading = false
+                isLoadingPage = false
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
 
-    private fun addBookmark(hearitId: Long) {
-        viewModelScope.launch {
-            val token = dataStoreRepository.getAccessToken().getOrNull()
-
-            bookmarkRepository
-                .addBookmark(token?.toBearerToken(), hearitId)
-                .onSuccess { newBookmarkId ->
-                    updateBookmarkState(hearitId, newBookmarkId)
-                }.onFailure {
-                    _toastMessage.value = R.string.all_toast_add_bookmark_fail
-                }
-        }
-    }
-
-    private fun deleteBookmark(
-        hearitId: Long,
-        bookmarkId: Long,
-    ) {
-        viewModelScope.launch {
-            val token = dataStoreRepository.getAccessToken().getOrNull()
-
-            bookmarkRepository
-                .deleteBookmark(token?.toBearerToken(), bookmarkId)
-                .onSuccess {
-                    updateBookmarkState(hearitId, null)
-                }.onFailure {
-                    _toastMessage.value = R.string.all_toast_delete_bookmark_fail
-                }
-        }
-    }
-
-    private fun updateBookmarkState(
-        hearitId: Long,
-        bookmarkId: Long?,
-    ) {
-        val currentBookmarkId = _bookmarkId.value.orEmpty().toMutableMap()
-        currentBookmarkId[hearitId] = bookmarkId
-        _bookmarkId.value = currentBookmarkId
-    }
-
-    private suspend fun buildShortsHearit(pageItems: PageResult<RandomHearit>): List<ShortsHearit> =
+    private suspend fun buildShortsItems(cursorResult: CursorResult<ExploreHearit>): List<ExploreHearit> =
         coroutineScope {
-            pageItems.items
-                .map { item ->
-                    async { getShortsHearitUseCase(item).getOrNull() }
-                }.awaitAll()
+            cursorResult.items
+                .map { item -> async { getExploreHearit(item).getOrNull() } }
+                .awaitAll()
                 .mapNotNull { it }
         }
 
-    private fun updateShortsHearit(
-        newItems: List<ShortsHearit>,
-        isInitial: Boolean,
+    fun onPageChanged(
+        pageIndex: Int,
+        isRestoring: Boolean = false,
     ) {
-        _shortsHearits.value =
-            if (isInitial) {
-                newItems
-            } else {
-                _shortsHearits.value.orEmpty() + newItems
-            }
+        val items = _uiState.value.shortsHearits
+        val item = items.getOrNull(pageIndex) ?: return
 
-        _bookmarkId.value =
-            if (isInitial) {
-                newItems.associate { it.id to it.bookmarkId }
+        _uiState.update { it.copy(currentPageIndex = pageIndex) }
+
+        // 복원 중일 때는 저장된 resumePositionMs 사용 후 0으로 리셋
+        val startPos =
+            if (isRestoring) {
+                val pos = if (resumePositionMs > 0) resumePositionMs else lastPosition
+                resumePositionMs = 0L
+                pos
             } else {
-                _bookmarkId.value.orEmpty().toMutableMap().apply {
-                    newItems.forEach { item ->
-                        this[item.id] = item.bookmarkId
-                    }
-                }
+                0L
             }
+        lastPosition = startPos
+
+        item.audioUrl?.let { url ->
+            playerManager.play(url, startPos)
+        }
+
+        maybeLoadMore(currentIndex = pageIndex, totalCount = items.size)
+    }
+
+    fun onPositionChanged(position: Long) {
+        playerManager.seekTo(position)
+        lastPosition = position
+    }
+
+    fun onPlayerStateChanged() {
+        if (playerManager.isPlaying.value) playerManager.pause() else playerManager.resume()
+    }
+
+    fun onSetPlayerSpeed() {
+        if (!playerManager.isPlaying.value) return
+        val newSpeed = if (playerManager.speed.value == 1.0f) 2.0f else 1.0f
+        playerManager.setPlaybackSpeed(newSpeed)
+    }
+
+    fun onHearitSelected(id: Long) {
+        val currentPos = playerManager.currentPosition.value
+        viewModelScope.launch {
+            _sideEffect.emit(ExploreSideEffect.NavigateToDetail(id, currentPos))
+        }
+    }
+
+    private fun maybeLoadMore(
+        currentIndex: Int,
+        totalCount: Int,
+    ) {
+        if (isLoadingPage || totalCount <= 0) return
+
+        val nearEnd = currentIndex >= maxOf(0, totalCount - 3)
+        if (!nearEnd) return
+
+        if (isEndOfFeed) {
+            isEndOfFeed = false
+            nextCursorId = -1L
+            fetchData(0L)
+        } else {
+            fetchData(nextCursorId ?: 0L)
+        }
+    }
+
+    fun loadAnimation() {
+        viewModelScope.launch {
+            exploreRepository
+                .shouldShowAnimation()
+                .onSuccess { shouldShow ->
+                    _uiState.update { it.copy(showGuideAnimation = shouldShow) }
+                }.onFailure {
+                    _uiState.update { it.copy(showGuideAnimation = false) }
+                }
+        }
+    }
+
+    fun dismissAnimation() {
+        _uiState.update { it.copy(showGuideAnimation = false) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        playerManager.stop()
     }
 }

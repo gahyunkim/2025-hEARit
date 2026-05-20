@@ -5,16 +5,19 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.onair.hearit.R
-import com.onair.hearit.analytics.CrashlyticsLogger
+import com.onair.hearit.data.AuthEventManager
 import com.onair.hearit.domain.repository.AuthRepository
-import com.onair.hearit.domain.repository.DataStoreRepository
+import com.onair.hearit.domain.usecase.auth.SaveTokenUseCase
 import com.onair.hearit.presentation.SingleLiveData
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import javax.inject.Inject
 
-class LoginViewModel(
+@HiltViewModel
+class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val dataStoreRepository: DataStoreRepository,
-    private val crashlyticsLogger: CrashlyticsLogger,
+    private val saveTokenUseCase: SaveTokenUseCase,
 ) : ViewModel() {
     private val _loginState = MutableLiveData<Boolean>()
     val loginState: LiveData<Boolean> = _loginState
@@ -28,7 +31,8 @@ class LoginViewModel(
                 .kakaoLogin(accessToken)
                 .onSuccess { appToken ->
                     saveToken(appToken.accessToken, appToken.refreshToken)
-                }.onFailure {
+                }.onFailure { throwable ->
+                    Timber.w(throwable)
                     _toastMessage.value = R.string.login_toast_kakao_login_fail
                     _loginState.value = false
                 }
@@ -40,19 +44,14 @@ class LoginViewModel(
         refreshToken: String,
     ) {
         viewModelScope.launch {
-            val result =
-                runCatching {
-                    dataStoreRepository.saveAccessToken(accessToken).getOrThrow()
-                    dataStoreRepository.saveRefreshToken(refreshToken).getOrThrow()
-                }
-
-            result
+            saveTokenUseCase(accessToken, refreshToken)
                 .onSuccess {
+                    AuthEventManager.onLoginSuccess()
                     _loginState.value = true
-                }.onFailure {
+                }.onFailure { throwable ->
+                    Timber.w(throwable)
                     _toastMessage.value = R.string.login_toast_save_token_fail
                     _loginState.value = false
-                    crashlyticsLogger.recordException(it)
                 }
         }
     }

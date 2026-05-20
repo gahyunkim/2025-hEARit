@@ -11,10 +11,12 @@ data class HearitResponse(
     val title: String,
     @SerialName("summary")
     val summary: String,
-    @SerialName("source")
-    val source: String,
+    @SerialName("sources")
+    val sources: List<SourceResponse>,
     @SerialName("playTime")
     val playTime: Int,
+    @SerialName("lastPlayTime")
+    val lastPlayTime: Long? = null,
     @SerialName("createdAt")
     val createdAt: String,
     @SerialName("isBookmarked")
@@ -22,7 +24,11 @@ data class HearitResponse(
     @SerialName("bookmarkId")
     val bookmarkId: Long?,
     @SerialName("category")
-    val category: String,
+    val category: CategoryResponse.Content,
     @SerialName("keywords")
     val keywords: List<KeywordResponse>,
+    @SerialName("like")
+    val like: LikeResponse,
+    @SerialName("viewCount")
+    val viewCount: Int,
 )
